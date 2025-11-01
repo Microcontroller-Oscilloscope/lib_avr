@@ -16,7 +16,19 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <hard_timer.h>
+/**
+ * F_CPU = 16,000,000
+ * 
+ * F_DER = desired frequency (Hz)
+ * 
+ * timerTicks = [F_CPU / (scalar * F_DER)] - 1
+ * F_DER = F_CPU / [scalar * (timerTicks + 1)]
+ * 
+ * 8-bit counter for timer 0,2 and 16-bit for timer 1
+ * scalars: 1, 8, 64, 256, 1024. timer 2 additional scalars: 32, 128
+ */
+
+#include <osc_common/common_timer.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
