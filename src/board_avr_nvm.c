@@ -1,5 +1,5 @@
 /*
-	board_uno_nvm.c - nvm configuration for Arduino Uno
+	board_avr_nvm.c - nvm configuration for avr boards
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <board_common.h>
+#include <osc_common.h>
 #include <nvm/nvm.h>
 #include <board.h>
 

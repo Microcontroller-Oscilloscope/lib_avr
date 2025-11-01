@@ -1,5 +1,5 @@
 /*
-	board_uno_timer.c - timer configuration for Arduino Uno
+	board_atmega328p_timer.c - timer configuration for atmega328p
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,9 +16,10 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <hard_timer.h>
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <hard_timer.h>
 
 typedef enum {
 	SCALAR_1, // timer prescalar of 1, timers 0-2

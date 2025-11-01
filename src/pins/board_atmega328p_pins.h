@@ -1,5 +1,5 @@
 /*
-	board_uno_pins.h - pin configuration for Arduino Uno
+	board_atmega328p_pins.h - pin configuration for atmega328p
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify

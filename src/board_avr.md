@@ -1,6 +1,6 @@
-# Uno r3
+# AVR
 
-This repository contains the code necessary to run the `Uno r3` microcontroller oscilloscope. This repository requires the [Core](https://github.com/Microcontroller-Oscilloscope/Core) to function and [Unity Tests](https://github.com/Microcontroller-Oscilloscope/UnityTests) to verify its functionality.
+This repository contains the code necessary to run the `Atmel AVR` microcontroller oscilloscope. This repository requires the [Core](https://github.com/Microcontroller-Oscilloscope/Core) to function and [Unity Tests](https://github.com/Microcontroller-Oscilloscope/UnityTests) to verify its functionality.
 
 Mark Descriptions:<br>
 &check;: Fully supported<br>

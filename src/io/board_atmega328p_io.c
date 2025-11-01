@@ -1,5 +1,5 @@
 /*
-	board_uno_io.c - IO configuration for Arduino Uno
+	board_atmega328p_io.c - IO configuration for atmega328p
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <board_common.h>
+#include <osc_common.h>
 
 uint8_t claimedPins[3] = {0, 0, 0};
 

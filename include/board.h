@@ -1,5 +1,5 @@
 /*
-	board.h - configuration flags for AVR boards
+	board.h - configuration flags for Atmel AVR boards
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,40 +16,28 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef BOARD_UNO_H
-#define BOARD_UNO_H
+#ifndef BOARD_H
+#define BOARD_H
 
-#ifdef ARDUINO_AVR_UNO
-	#define UNOR3
-	#define BOARD_FOUND
-#endif
+/****************************
+ * NVM Config
+****************************/
 
-#ifdef UNOR3
-
-	#include "board_uno_pins.h"
-
-	#ifndef NUM_IO_PINS
-		#define NUM_IO_PINS 20 // number pins available to controller
-	#endif
-
-	/****************************
-	 * Board Overrides
-	****************************/
-
-	#ifndef NVM_SIZE
+#ifndef NVM_SIZE
+	#if defined(__AVR_ATmega328P__)
 		#define NVM_SIZE 1024 // size in bytes of NVM
+	#elif defined(CUSTOM_AVR)
+		#error define 'NVM_SIZE' value in compile flags
+	#else
+		#define NVM_SIZE 0 // size in bytes of NVM
 	#endif
-
-	#ifndef STATUS_LED_PIN
-		#define STATUS_LED_PIN INTERNAL_LED // pin for status LED
-	#endif
-
-	/****************************
-	 * Test Timer Config
-	****************************/
-
-	#define TEST_FAST_FREQ 140000 // target frequency
-	#define TEST_DELAY_RUNNER // enables testDelayRunner function
-
 #endif
+
+/****************************
+ * Test Timer Config
+****************************/
+
+#define TEST_FAST_FREQ 140000 // target frequency
+#define TEST_DELAY_RUNNER // enables testDelayRunner function
+
 #endif

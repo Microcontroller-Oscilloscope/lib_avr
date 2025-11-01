@@ -1,5 +1,5 @@
 /*
-	board_uno_thread.c - thread configuration for Arduino Uno
+	board_avr_delay.c - delay configuration for avr boards
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,12 +16,14 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <board_common.h>
+#include <osc_common.h>
 
-bool startThreadSafety(void) {
-	return true;
+#include <util/delay.h>
+
+void hardDelayMS(uint32_t delayAmount) {
+	_delay_ms(delayAmount);
 }
 
-bool endThreadSafety(void) {
-	return true;
+void hardDelayUS(uint32_t delayAmount) {
+	_delay_us(delayAmount);
 }
