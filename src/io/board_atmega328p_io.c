@@ -17,58 +17,15 @@
 */
 
 #include <osc_common/common_io.h>
+#include <status/status.h>
+#include "../pins/pins.h"
+
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
 uint8_t claimedPins[3] = {0, 0, 0};
 
-struct pinData {
-	volatile uint8_t* PORT; // rw port resistor (1: input pullup, 0: input)
-	volatile uint8_t* DDR; // rw pin direction port (1: output, 0: input)
-	volatile uint8_t* PIN; // r input value
-};
-
-const struct pinData PINS_B PROGMEM = {
-	.PORT = &PORTB,
-	.DDR = &DDRB,
-	.PIN = &PINB,
-};
-
-const struct pinData PINS_C PROGMEM = {
-	.PORT = &PORTC,
-	.DDR = &DDRC,
-	.PIN = &PINC,
-};
-
-const struct pinData PINS_D PROGMEM = {
-	.PORT = &PORTD,
-	.DDR = &DDRD,
-	.PIN = &PIND,
-};
-
-//const struct pinData digitalPins[] PROGMEM = {
-const struct pinData *const digitalPins[] PROGMEM = {
-	&PINS_D, // port D
-	&PINS_D,
-	&PINS_D,
-	&PINS_D,
-	&PINS_D,
-	&PINS_D,
-	&PINS_D,
-	&PINS_D,
-	&PINS_B, // port B
-	&PINS_B,
-	&PINS_B,
-	&PINS_B,
-	&PINS_B,
-	&PINS_B,
-	&PINS_C, // port C
-	&PINS_C,
-	&PINS_C,
-	&PINS_C,
-	&PINS_C,
-	&PINS_C,
-};
-
-const uint8_t pinMask[] PROGMEM = {
+const uint8_t bitMask[] PROGMEM = {
 	TO_BIT(0), // port D
 	TO_BIT(1),
 	TO_BIT(2),
@@ -91,30 +48,114 @@ const uint8_t pinMask[] PROGMEM = {
 	TO_BIT(5),
 };
 
+#define GET_BIT_MASK(i) pgm_read_byte_near(bitMask + i)
+
+#define OSC_PORTB 0
+#define OSC_PORTC 1
+#define OSC_PORTD 2
+
+const uint8_t portIDMask[] PROGMEM = {
+	OSC_PORTD, // port D
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTD,
+	OSC_PORTB, // port B
+	OSC_PORTB,
+	OSC_PORTB,
+	OSC_PORTB,
+	OSC_PORTB,
+	OSC_PORTB,
+	OSC_PORTC, // port C
+	OSC_PORTC,
+	OSC_PORTC,
+	OSC_PORTC,
+	OSC_PORTC,
+	OSC_PORTC,
+};
+
+#define GET_PORT_ID_MASK(i) pgm_read_byte_near(portIDMask + (i))
+
+const uint16_t ddrMask[] PROGMEM = {
+	(uint16_t) &DDRB,
+	(uint16_t) &DDRC,
+	(uint16_t) &DDRD,
+};
+
+// rw pin direction port (1: output, 0: input)
+#define GET_DDR_MASK(i) ((volatile uint8_t*)(pgm_read_word_near(ddrMask + (i))))
+
+const uint16_t portMask[] PROGMEM = {
+	(uint16_t) &PORTB,
+	(uint16_t) &PORTC,
+	(uint16_t) &PORTD,
+};
+
+// rw port resistor (1: input pullup, 0: input)
+#define GET_PORT_MASK(i) ((volatile uint8_t*)(pgm_read_word_near(portMask + (i))))
+
+// r input value
+#define GET_PIN_MASK(i)
+
 bool initBoard() {
 	return true;
 }
 
 void hardPinMode(pin_t pin, enum pinModeState mode) {
 
+	uint8_t bitMasked = GET_BIT_MASK(pin);
+	uint8_t pinPortID = GET_PORT_ID_MASK(pin);
+
+	volatile uint8_t *pinDDR, *pinPORT;
+
+	pinDDR = GET_DDR_MASK(pinPortID);
+	pinPORT = GET_PORT_MASK(pinPortID);
+
 	if (mode == PIN_MODE_INPUT) {
-		*(digitalPins[pin] -> DDR) &= ~(pinMask[pin]); // sets input
+		cli();
+		*pinDDR &= ~bitMasked;
+		*pinPORT &= ~bitMasked;
+		sei();
 	}
 	else if (mode == PIN_MODE_OUTPUT) {
-		*(digitalPins[pin] -> DDR) |= (pinMask[pin]); // sets output
+		cli();
+		*pinDDR |= bitMasked;
+		sei();
 	}
 	else if (mode == PIN_MODE_INPUT_PULL_UP) {
-		*(digitalPins[pin] -> DDR) &= ~(pinMask[pin]); // sets input
-		*(digitalPins[pin] -> PORT) |= (pinMask[pin]); // sets pullup
+		cli();
+		*pinDDR &= ~bitMasked;
+		*pinPORT |= bitMasked;
+		sei();
 	}
 }
 
-void hardDigitalWrite(pin_t pin, enum digitalState value) {
+void hardDigitalWrite(pin_t pin, uint8_t value) {
+
+	uint8_t bitMasked = GET_BIT_MASK(pin);
+	uint8_t pinPortID = GET_PORT_ID_MASK(pin);
+	volatile uint8_t* pinPORT = GET_PORT_MASK(pinPortID);
 	
 	if (value) {
-		*(digitalPins[pin] -> PORT) |= (pinMask[pin]); // sets HIGH
+		cli();
+		*pinPORT |= bitMasked;
+		sei();
 	}
 	else {
-		*(digitalPins[pin] -> PORT) &= ~(pinMask[pin]); // sets LOW
+		cli();
+		*pinPORT &= ~bitMasked;
+		sei();
 	}
+}
+
+bool getStatusPin(pin_t *pin, enum statusPin status) {
+	if (status == STATUS_PIN_INTERNAL) {
+		*pin = INTERNAL_LED;
+		return true;
+	}
+	*pin = PIN_T_INVALID;
+	return false;
 }
