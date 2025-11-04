@@ -38,6 +38,5 @@
 ****************************/
 
 #define TEST_FAST_FREQ 140000 // target frequency
-#define TEST_DELAY_RUNNER // enables testDelayRunner function
 
 #endif
