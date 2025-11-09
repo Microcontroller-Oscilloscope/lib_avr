@@ -58,9 +58,7 @@ void hardDelayMS(uint32_t delayAmount) {
 			}
 		}
 
-		while (delayCount < (delayAmount - leftover) * freq / TIME_UNIT_CONVERT) {
-			yield();
-		}
+		while (delayCount < (delayAmount - leftover) * freq / TIME_UNIT_CONVERT) {}
 		cancelHardTimer(timer);
 	}
 

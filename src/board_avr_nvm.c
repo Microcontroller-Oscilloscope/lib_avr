@@ -17,7 +17,6 @@
 */
 
 #include <nvm/nvm.h>
-#include <board.h>
 
 #include <string.h>
 #include <avr/eeprom.h>
@@ -31,38 +30,25 @@ enum NVMStartCode nvmInit(nvm_size_t setNVMSize) {
 	if (setNVMSize == (nvm_size_t)DEFAULT_NVM_SIZE) {
 		return NVM_INVALID_SIZE;
 	}
+	if (setNVMSize > nvmMaxSize()) {
+		return NVM_INVALID_SIZE;
+	}
 	nvmBegan = true;
 	return NVM_OK;
 }
 
-bool nvmMaxSize(nvm_size_t *size) {
-	if (nvmBegan) {
-		*size = (nvm_size_t)(E2END + 1);
-		if (*size == 0) {
-			*size = NVM_MAX_SIZE;
-		}
-		return true;
-	}
-
-	*size = DEFAULT_NVM_SIZE;
-	return false;
+nvm_size_t nvmMaxSize(void) {
+	return E2END + 1;
 }
 
 enum NVMDefaultCode nvmSetDefaults(void) {
-	// ensures NVM_SIZE isn't too big for microcontroller
-	nvm_size_t nvmMaxValue;
-	if (nvmMaxSize(&nvmMaxValue)) {
-		if (NVM_SIZE > nvmMaxValue) {
-			return NVM_DEFAULT_SIZE_TOO_BIG;
-		}
-	}
-	else {
-		// if nvm not started or unable to get size
-		return NVM_DEFAULT_FAIL_MAX_SIZE;
+
+	if (!nvmBegan) {
+		return NVM_DEFAULT_NOT_STARTED;
 	}
 
 	// writes critical values
-	enum NVMDefaultCode code = nvmSetCritDefaults(nvmMaxValue);
+	enum NVMDefaultCode code = nvmSetCritDefaults(nvmMaxSize());
 	if (code != NVM_DEFAULT_OK) {
 		return code;
 	}
