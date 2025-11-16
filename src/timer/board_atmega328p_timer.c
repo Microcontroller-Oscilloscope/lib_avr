@@ -125,11 +125,8 @@ const uint16_t scalarMask[] PROGMEM = {
 		TIMER_0_SCAL |= (1 << CS02); \
 	}
 
-volatile void(*timer0Ptr)() = NULL;
-volatile void* timer0Params = NULL;
-
 ISR(TIMER0_COMPA_vect) {
-	((void(*)())timer0Ptr)(timer0Params);
+	((void(*)())hardTimerFunctions[0])(hardTimerParams[0]);
 }
 
 /****************************
@@ -164,11 +161,8 @@ ISR(TIMER0_COMPA_vect) {
 		TIMER_1_SCAL |= (1 << CS12); \
 	}
 
-volatile void(*timer1Ptr)() = NULL;
-volatile void* timer1Params = NULL;
-
 ISR(TIMER1_COMPA_vect) {
-	((void(*)())timer1Ptr)(timer1Params);
+	((void(*)())hardTimerFunctions[1])(hardTimerParams[1]);
 }
 
 /****************************
@@ -203,11 +197,8 @@ ISR(TIMER1_COMPA_vect) {
 		TIMER_2_SCAL |= (1 << CS22); \
 	}
 
-volatile void(*timer2Ptr)() = NULL;
-volatile void* timer2Params = NULL;
-
 ISR(TIMER2_COMPA_vect) {
-	((void(*)())timer2Ptr)(timer2Params);
+	((void(*)())hardTimerFunctions[2])(hardTimerParams[2]);
 }
 
 /****************************
@@ -554,8 +545,7 @@ bool hardTimerStarted(hard_timer_t timer) {
 	cli(); \
 	CONCATENATE3(TIMER_, num, _SCAL) &= ~CONCATENATE3(TIMER_, num, _SCALAR_ENABLE); \
 	CONCATENATE3(TIMER_, num, _INTERR) &= ~CONCATENATE3(TIMER_, num, _INTERR_ENABLE); \
-	sei(); \
-	CONCATENATE3(timer, num, Ptr) = NULL
+	sei()
 
 bool cancelHardTimer(hard_timer_t timer) {
 
@@ -582,8 +572,6 @@ bool cancelHardTimer(hard_timer_t timer) {
  * @param num timer number
  */
 #define SET_HARD_TIMER(num, scalar, timerTicks, function, params) \
-	CONCATENATE3(timer, num, Ptr) = function; \
-	CONCATENATE3(timer, num, Params) = params; \
 	cli(); \
 	CONCATENATE3(TIMER_, num, _COMP) = 0; \
 	CONCATENATE3(TIMER_, num, _WAVEFORM) = 0; \
@@ -618,6 +606,9 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 	}
 
 	if (!hardTimerStarted(*timer)) {
+
+		setHardTimerFunction(*timer, function, params);
+
 		if (*timer == HARD_TIMER0) {
 			SET_HARD_TIMER(0, scalar, timerTicks, function, params);
 		}
