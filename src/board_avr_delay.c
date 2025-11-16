@@ -27,9 +27,8 @@
 
 volatile uint32_t delayCount = 0U;
 
-hard_timer_return_t RUN_IN_RAM(delayCounter) delayCounter(hard_timer_param_t emptyParams) {
+void RUN_IN_RAM(delayCounter) delayCounter(void *emptyParams) {
 	delayCount++;
-	HARD_TIMER_END();
 }
 
 void hardDelayMS(uint32_t delayAmount) {
@@ -46,13 +45,13 @@ void hardDelayMS(uint32_t delayAmount) {
 		freq = 1;
 		
 		// try 1Hz
-		if (!setHardTimer(&timer, &freq, &delayCounter, DEFAULT_HARD_TIMER_PRIORITY)) {
+		if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
 			freq = 100;
 			cancelHardTimer(timer);
 			timer = HARD_TIMER_INVALID;
 
 			// try 100Hz
-			if (!setHardTimer(&timer, &freq, &delayCounter, DEFAULT_HARD_TIMER_PRIORITY)) {
+			if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
 				cancelHardTimer(timer);
 				return;
 			}
@@ -68,7 +67,7 @@ void hardDelayMS(uint32_t delayAmount) {
 		delayCount = 0;
 		timer = HARD_TIMER_INVALID;
 
-		if (!setHardTimer(&timer, &freq, &delayCounter, DEFAULT_HARD_TIMER_PRIORITY)) {
+		if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
 			cancelHardTimer(timer);
 			return;
 		}

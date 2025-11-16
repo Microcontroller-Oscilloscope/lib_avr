@@ -46,7 +46,6 @@ typedef uint16_t timertick_t; // timer tick type
 
 uint8_t timerStates = 0U; // started states and claimed states
 
-#define FREQ_MAX 1000000 // max frequency user set timer can be
 #define FREQ_MIN_8_COUNTER 62 // min frequency for 8 bit counter
 
 const uint16_t scalarMask[] PROGMEM = {
@@ -127,9 +126,10 @@ const uint16_t scalarMask[] PROGMEM = {
 	}
 
 volatile void(*timer0Ptr)() = NULL;
+volatile void* timer0Params = NULL;
 
 ISR(TIMER0_COMPA_vect) {
-	((void(*)())timer0Ptr)();
+	((void(*)())timer0Ptr)(timer0Params);
 }
 
 /****************************
@@ -165,9 +165,10 @@ ISR(TIMER0_COMPA_vect) {
 	}
 
 volatile void(*timer1Ptr)() = NULL;
+volatile void* timer1Params = NULL;
 
 ISR(TIMER1_COMPA_vect) {
-	((void(*)())timer1Ptr)();
+	((void(*)())timer1Ptr)(timer1Params);
 }
 
 /****************************
@@ -203,9 +204,10 @@ ISR(TIMER1_COMPA_vect) {
 	}
 
 volatile void(*timer2Ptr)() = NULL;
+volatile void* timer2Params = NULL;
 
 ISR(TIMER2_COMPA_vect) {
-	((void(*)())timer2Ptr)();
+	((void(*)())timer2Ptr)(timer2Params);
 }
 
 /****************************
@@ -579,8 +581,9 @@ bool cancelHardTimer(hard_timer_t timer) {
  * 
  * @param num timer number
  */
-#define SET_HARD_TIMER(num, scalar, timerTicks, function) \
+#define SET_HARD_TIMER(num, scalar, timerTicks, function, params) \
 	CONCATENATE3(timer, num, Ptr) = function; \
+	CONCATENATE3(timer, num, Params) = params; \
 	cli(); \
 	CONCATENATE3(TIMER_, num, _COMP) = 0; \
 	CONCATENATE3(TIMER_, num, _WAVEFORM) = 0; \
@@ -591,12 +594,12 @@ bool cancelHardTimer(hard_timer_t timer) {
 	CONCATENATE3(TIMER_, num, _INTERR) |= CONCATENATE3(TIMER_, num, _INTERR_ENABLE); \
 	sei()
 
-bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, timer_priority_t priority) {
+bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t function, void* params, timer_priority_t priority) {
 
 	if (function == NULL || freq == NULL || timer == NULL) {
 		return false;
 	}
-	if (*freq == (freq_t)0 || *freq > FREQ_MAX) {
+	if (*freq == (freq_t)0 || *freq > HARD_TIMER_FREQ_MAX) {
 		return false;
 	}
 
@@ -616,13 +619,13 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 	if (!hardTimerStarted(*timer)) {
 		if (*timer == HARD_TIMER0) {
-			SET_HARD_TIMER(0, scalar, timerTicks, function);
+			SET_HARD_TIMER(0, scalar, timerTicks, function, params);
 		}
 		else if (*timer == HARD_TIMER1) {
-			SET_HARD_TIMER(1, scalar, timerTicks, function);
+			SET_HARD_TIMER(1, scalar, timerTicks, function, params);
 		}
 		else if (*timer == HARD_TIMER2) {
-			SET_HARD_TIMER(2, scalar, timerTicks, function);
+			SET_HARD_TIMER(2, scalar, timerTicks, function, params);
 		}
 
 		setTimerStarted(*timer, true);
