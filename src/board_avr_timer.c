@@ -1,5 +1,5 @@
 /*
-	board_atmega328p_timer.c - timer configuration for atmega328p
+	board_avr_timer.c - timer configuration for avr
 	Copyright (C) 2025 Camren Chraplak
 
 	This program is free software: you can redistribute it and/or modify
@@ -16,19 +16,8 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-/**
- * F_CPU = 16,000,000
- * 
- * F_DER = desired frequency (Hz)
- * 
- * timerTicks = [F_CPU / (scalar * F_DER)] - 1
- * F_DER = F_CPU / [scalar * (timerTicks + 1)]
- * 
- * 8-bit counter for timer 0,2 and 16-bit for timer 1
- * scalars: 1, 8, 64, 256, 1024. timer 2 additional scalars: 32, 128
- */
-
 #include <osc_common/common_timer.h>
+#include "timer/board_avr_timer.h"
 
 #if NUM_TIMERS > 0
 
@@ -36,13 +25,13 @@
 #include <avr/interrupt.h>
 
 typedef enum {
-	SCALAR_1, // timer prescalar of 1, timers 0-2
-	SCALAR_8, // timer prescalar of 8, timers 0-2
-	SCALAR_32, // timer prescalar of 32, timer 2
-	SCALAR_64, // timer prescalar of 64, timers 0-2
-	SCALAR_128, // timer prescalar of 128, timer 2
-	SCALAR_256, // timer prescalar of 256, timers 0-2
-	SCALAR_1024, // timer prescalar of 1024, timers 0-2
+	SCALAR_1, // timer prescalar of 1
+	SCALAR_8, // timer prescalar of 8
+	SCALAR_32, // timer prescalar of 32
+	SCALAR_64, // timer prescalar of 64
+	SCALAR_128, // timer prescalar of 128
+	SCALAR_256, // timer prescalar of 256
+	SCALAR_1024, // timer prescalar of 1024
 } prescalar_t; // pre scalar type
 typedef uint16_t timertick_t; // timer tick type
 
