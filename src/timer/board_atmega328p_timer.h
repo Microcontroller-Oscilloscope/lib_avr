@@ -27,3 +27,15 @@
  * 8-bit counter for timer 0,2 and 16-bit for timer 1
  * scalars: 1, 8, 64, 256, 1024. timer 2 additional scalars: 32, 128
  */
+
+#define SCALAR_1_ENABLE
+#define SCALAR_8_ENABLE
+#define SCALAR_32_ENABLE
+#define SCALAR_64_ENABLE
+#define SCALAR_128_ENABLE
+#define SCALAR_256_ENABLE
+#define SCALAR_1024_ENABLE
+
+#ifndef OVERRIDE_ARDUINO_TIMER
+	#define SKIP_TIMER_INDEX 0
+#endif

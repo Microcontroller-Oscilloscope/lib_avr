@@ -25,38 +25,74 @@
 #include <avr/interrupt.h>
 
 typedef enum {
-	SCALAR_1, // timer prescalar of 1
-	SCALAR_8, // timer prescalar of 8
-	SCALAR_32, // timer prescalar of 32
-	SCALAR_64, // timer prescalar of 64
-	SCALAR_128, // timer prescalar of 128
-	SCALAR_256, // timer prescalar of 256
-	SCALAR_1024, // timer prescalar of 1024
+	#ifdef SCALAR_1_ENABLE
+		SCALAR_1, // timer prescalar of 1
+	#endif
+	#ifdef SCALAR_8_ENABLE
+		SCALAR_8, // timer prescalar of 8
+	#endif
+	#ifdef SCALAR_32_ENABLE
+		SCALAR_32, // timer prescalar of 32
+	#endif
+	#ifdef SCALAR_64_ENABLE
+		SCALAR_64, // timer prescalar of 64
+	#endif
+	#ifdef SCALAR_128_ENABLE
+		SCALAR_128, // timer prescalar of 128
+	#endif
+	#ifdef SCALAR_256_ENABLE
+		SCALAR_256, // timer prescalar of 256
+	#endif
+	#ifdef SCALAR_1024_ENABLE
+		SCALAR_1024, // timer prescalar of 1024
+	#endif
 } prescalar_t; // pre scalar type
 typedef uint16_t timertick_t; // timer tick type
 
 #if NUM_TIMERS <= 4
 	uint8_t timerStates = 0U; // started states and claimed states
-#else
+#elif NUM_TIMERS <= 8
 	uint16_t timerStates = 0U; // started states and claimed states
+#elif NUM_TIMERS <= 16
+	uint32_t timerStates = 0U; // started states and claimed states
+#elif NUM_TIMERS <= 32
+	uint64_t timerStates = 0U; // started states and claimed states
+#else
+	#error "Too many timers"
 #endif
 
-#define FREQ_MIN_8_COUNTER 62 // min frequency for 8 bit counter
+#if F_CPU == 16000000L
+	#define FREQ_MIN_8_COUNTER 62 // min frequency for 8 bit counter
+#else
+	#error "Frequency not supported"
+#endif
 
 const uint16_t scalarMask[] PROGMEM = {
-	1, // SCALAR_1
-	8, // SCALAR_8
-	32, // SCALAR_32
-	64, // SCALAR_64
-	128, // SCALAR_128
-	256, // SCALAR_256
-	1024, // SCALAR_1024
+	#ifdef SCALAR_1_ENABLE
+		1, // SCALAR_1
+	#endif
+	#ifdef SCALAR_8_ENABLE
+		8, // SCALAR_8
+	#endif
+	#ifdef SCALAR_32_ENABLE
+		32, // SCALAR_32
+	#endif
+	#ifdef SCALAR_64_ENABLE
+		64, // SCALAR_64
+	#endif
+	#ifdef SCALAR_128_ENABLE
+		128, // SCALAR_128
+	#endif
+	#ifdef SCALAR_256_ENABLE
+		256, // SCALAR_256
+	#endif
+	#ifdef SCALAR_1024_ENABLE
+		1024, // SCALAR_1024
+	#endif
 };
 
-#ifdef OVERRIDE_ARDUINO_TIMER
+#ifndef SKIP_TIMER_INDEX
 	#define SKIP_TIMER_INDEX NUM_TIMERS
-#else
-	#define SKIP_TIMER_INDEX 0
 #endif
 
 #ifdef OVERRIDE_ARDUINO_TIMER
@@ -98,39 +134,6 @@ const uint16_t scalarMask[] PROGMEM = {
 #endif
 
 #define SCALAR_MASK_SIZE (sizeof(scalarMask) / sizeof(uint16_t)) // size of scalarMask
-
-/**
- * Gets scalar mask value from enum
- * 
- * @param i scalar enum
- * 
- * @return literal int value
- */
-#define GET_MASK(i) ((uint16_t)pgm_read_word_near(scalarMask + i))
-
-/**
- * Calculates timer frequency from scalar value and timer tick value
- * 
- * @param calcScalar scalar enum
- * @param calcTimerTicks timer ticks to count for
- * 
- * @return calculated frequency
- * 
- * @warning rounds to nearest int
- */
-#define CALC_FREQ(calcScalar, calcTimerTicks) (F_CPU / ((freq_t)GET_MASK(calcScalar) * (calcTimerTicks + 1)))
-
-/**
- * Calculates timer ticks from scalar value and frequency
- * 
- * @param calcScalar scalar enum
- * @param calcFreq frequency to get ticks for
- * 
- * @return calculated timer ticks
- * 
- * @warning rounds to nearest int
- */
-#define CALC_TICKS(calcScalar, calcFreq) ((F_CPU / (GET_MASK(calcScalar) * calcFreq)) - 1)
 
 /****************************
  * Timer 0
@@ -271,6 +274,41 @@ ISR(TIMER2_COMPA_vect) {
 ****************************/
 
 /**
+ * Gets scalar mask value from enum
+ * 
+ * @param i scalar enum
+ * 
+ * @return literal int value
+ */
+uint16_t getMask(prescalar_t scalar) {
+	return ((uint16_t)pgm_read_word_near(scalarMask + scalar));
+}
+
+/**
+ * Calculates timer ticks from scalar value and frequency
+ * 
+ * @param scalar scalar enum
+ * @param freq frequency to get ticks for
+ * 
+ * @return calculated timer ticks
+ */
+timertick_t calculateTicks(prescalar_t scalar, freq_t freq) {
+	return (F_CPU / (getMask(scalar) * freq)) - 1;
+}
+
+/**
+ * Calculates timer frequency from scalar value and timer tick value
+ * 
+ * @param scalar scalar enum
+ * @param timerTicks timer ticks to count for
+ * 
+ * @return calculated frequency
+ */
+freq_t calculateFreq(prescalar_t scalar, timertick_t timerTicks) {
+	return F_CPU / ((freq_t)getMask(scalar) * (timerTicks + 1));
+}
+
+/**
  * Sets timer started state
  * 
  * @param timer timer to set
@@ -319,30 +357,13 @@ void setTimerClaimed(hard_timer_t timer, bool state) {
  */
 bool sameFreq(freq_t freq, prescalar_t scalar, timertick_t ticks) {
 
-	if (F_CPU % ((freq_t)GET_MASK(scalar) * (ticks + 1)) != 0) {
+	if (F_CPU % ((freq_t)getMask(scalar) * (ticks + 1)) != 0) {
 		return false;
 	}
-	if (CALC_FREQ(scalar, ticks) != freq) {
+	if (calculateFreq(scalar, ticks) != freq) {
 		return false;
 	}
 	return true;
-}
-
-/**
- * Gets absolute difference between given frequencies
- * 
- * @param targetFreq target freq given
- * @param calcFreq calculated freq
- * 
- * @return absolute difference
- */
-freq_t freqAbs(freq_t targetFreq, freq_t calcFreq) {
-	if (targetFreq > calcFreq) {
-		return targetFreq - calcFreq;
-	}
-	else {
-		return calcFreq - targetFreq;
-	}
 }
 
 /**
@@ -368,16 +389,16 @@ void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t
 		}
 
 		// ignore invalid ticks
-		if ((timertick_t)(F_CPU / (GET_MASK(i) * *freq)) < 1) {
+		if ((timertick_t)(F_CPU / (getMask(i) * *freq)) < 1) {
 			continue;
 		}
-		if (CALC_TICKS(i, *freq) > UINT16_MAX) {
+		if (calculateTicks(i, *freq) > UINT16_MAX) {
 			continue;
 		}
-		if (CALC_TICKS(i, *freq) > UINT8_MAX && timer != TIMER_1_ALIAS) {
+		if (calculateTicks(i, *freq) > UINT8_MAX && timer != TIMER_1_ALIAS) {
 			continue;
 		}
-		timertick_t calcTicks = CALC_TICKS(i, *freq);
+		timertick_t calcTicks = calculateTicks(i, *freq);
 
 		// frequency is exact value
 		if (sameFreq(*freq, i, calcTicks)) {
@@ -387,10 +408,10 @@ void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t
 		}
 
 		// test if newly calculated frequency is closer
-		if (freqAbs(*freq, closestFreq) > freqAbs(*freq, CALC_FREQ(i, calcTicks))) {
+		if (abs(*freq - closestFreq) > abs(*freq - calculateFreq(i, calcTicks))) {
 			*scalar = (prescalar_t)i;
 			*timerTicks = calcTicks;
-			closestFreq = CALC_FREQ(i, calcTicks);
+			closestFreq = calculateFreq(i, calcTicks);
 		}
 	}
 	*freq = closestFreq;
@@ -467,7 +488,6 @@ bool unclaimTimer(hard_timer_t timer) {
 	(origTimer) = (newTimer); \
 	getStats(&(newFreq), (origTimer), &(newScalar), &(newTicks)); \
 	if (sameFreq((origFreq), (newScalar), (newTicks))) { \
-		(origFreq) = (newFreq); \
 		return HARD_TIMER_OK; \
 	}
 
@@ -488,7 +508,7 @@ bool unclaimTimer(hard_timer_t timer) {
 #define SET_NEXT_FREQ(origFreq, origTimer, origTicks, origScalar, newFreq, newTimer, newTicks, newScalar) \
 	freq_t calcFreq = (origFreq); \
 	getStats(&calcFreq, (newTimer), &(newScalar), &(newTicks)); \
-	if (freqAbs((origFreq), (newFreq)) > freqAbs((origFreq), calcFreq)) { \
+	if (abs((origFreq) - (newFreq)) > abs((origFreq) - calcFreq)) { \
 		(newFreq) = calcFreq; \
 		(origTimer) = (newTimer); \
 		(origScalar) = (newScalar); \
@@ -520,7 +540,6 @@ enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, 
 
 	// gets stats for current timer
 	if (!hardTimerStarted(*timer) && *timer != HARD_TIMER_INVALID) {
-
 		SET_FIRST_FREQ(*freq, *timer, *freq, *timer, *timerTicks, *scalar);
 		return HARD_TIMER_SLIGHTLY_OFF;
 	}
@@ -678,13 +697,6 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 	timertick_t timerTicks;
 
 	if (getHardTimerStats(freq, timer, &scalar, &timerTicks) == HARD_TIMER_FAIL) {
-		return false;
-	}
-
-	if (
-		(*timer != TIMER_1_ALIAS && timerTicks >= UINT8_MAX) || // tests ticks out of bounds
-		(*timer != TIMER_1_ALIAS && (scalar == SCALAR_32 || scalar == SCALAR_128)) // tests scalar out of bounds
-	) {
 		return false;
 	}
 

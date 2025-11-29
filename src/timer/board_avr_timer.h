@@ -16,6 +16,8 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <osc_common/common_timer.h>
+
 #if defined(__AVR_ATmega328P__)
 	#include "board_atmega328p_timer.h"
 #endif
