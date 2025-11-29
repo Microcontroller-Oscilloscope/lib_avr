@@ -30,6 +30,8 @@
 
 #include <osc_common/common_timer.h>
 
+#if NUM_TIMERS > 0
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
@@ -44,7 +46,11 @@ typedef enum {
 } prescalar_t; // pre scalar type
 typedef uint16_t timertick_t; // timer tick type
 
-uint8_t timerStates = 0U; // started states and claimed states
+#if NUM_TIMERS <= 4
+	uint8_t timerStates = 0U; // started states and claimed states
+#else
+	uint16_t timerStates = 0U; // started states and claimed states
+#endif
 
 #define FREQ_MIN_8_COUNTER 62 // min frequency for 8 bit counter
 
@@ -57,6 +63,50 @@ const uint16_t scalarMask[] PROGMEM = {
 	256, // SCALAR_256
 	1024, // SCALAR_1024
 };
+
+#ifdef OVERRIDE_ARDUINO_TIMER
+	#define SKIP_TIMER_INDEX NUM_TIMERS
+#else
+	#define SKIP_TIMER_INDEX 0
+#endif
+
+#ifdef OVERRIDE_ARDUINO_TIMER
+	#define TIMER_COUNT NUM_TIMERS
+#else
+	#define TIMER_COUNT NUM_TIMERS + 1
+#endif
+
+#if TIMER_COUNT > 0
+	#if SKIP_TIMER_INDEX == 0
+		#define TIMER_0_ALIAS HARD_TIMER_INVALID_LIT
+	#else
+		#define TIMER_0_ALIAS HARD_TIMER0
+	#endif
+#else
+	#define TIMER_0_ALIAS HARD_TIMER_INVALID_LIT
+#endif
+#if TIMER_COUNT > 1
+	#if SKIP_TIMER_INDEX == 1
+		#define TIMER_1_ALIAS HARD_TIMER_INVALID_LIT
+	#elif SKIP_TIMER_INDEX < 1
+		#define TIMER_1_ALIAS HARD_TIMER0
+	#else
+		#define TIMER_1_ALIAS HARD_TIMER1
+	#endif
+#else
+	#define TIMER_1_ALIAS HARD_TIMER_INVALID_LIT
+#endif
+#if TIMER_COUNT > 2
+	#if SKIP_TIMER_INDEX == 2
+		#define TIMER_2_ALIAS HARD_TIMER_INVALID_LIT
+	#elif SKIP_TIMER_INDEX < 2
+		#define TIMER_2_ALIAS HARD_TIMER1
+	#else
+		#define TIMER_2_ALIAS HARD_TIMER2
+	#endif
+#else
+	#define TIMER_2_ALIAS HARD_TIMER_INVALID_LIT
+#endif
 
 #define SCALAR_MASK_SIZE (sizeof(scalarMask) / sizeof(uint16_t)) // size of scalarMask
 
@@ -97,6 +147,8 @@ const uint16_t scalarMask[] PROGMEM = {
  * Timer 0
 ****************************/
 
+#if TIMER_0_ALIAS != HARD_TIMER_INVALID_LIT
+
 #define TIMER_0_COMP TCCR0A // sets compare mode
 #define TIMER_0_WAVEFORM TCCR0B // sets waveform mode
 #define TIMER_0_COUNTER TCNT0 // current counter value
@@ -126,12 +178,18 @@ const uint16_t scalarMask[] PROGMEM = {
 	}
 
 ISR(TIMER0_COMPA_vect) {
-	((void(*)())hardTimerFunctions[0])(hardTimerParams[0]);
+	#if SKIP_TIMER_INDEX != 0
+		((void(*)())hardTimerFunctions[0])(hardTimerParams[0]);
+	#endif
 }
+
+#endif
 
 /****************************
  * Timer 1
 ****************************/
+
+#if TIMER_1_ALIAS != HARD_TIMER_INVALID_LIT
 
 #define TIMER_1_COMP TCCR1A // sets compare mode
 #define TIMER_1_WAVEFORM TCCR1B // sets waveform mode
@@ -162,12 +220,22 @@ ISR(TIMER0_COMPA_vect) {
 	}
 
 ISR(TIMER1_COMPA_vect) {
-	((void(*)())hardTimerFunctions[1])(hardTimerParams[1]);
+	#if SKIP_TIMER_INDEX != 1
+		#if SKIP_TIMER_INDEX < 1
+			((void(*)())hardTimerFunctions[0])(hardTimerParams[0]);
+		#else
+			((void(*)())hardTimerFunctions[1])(hardTimerParams[1]);
+		#endif
+	#endif
 }
+
+#endif
 
 /****************************
  * Timer 2
 ****************************/
+
+#if TIMER_2_ALIAS != HARD_TIMER_INVALID_LIT
 
 #define TIMER_2_COMP TCCR2A // sets compare mode
 #define TIMER_2_WAVEFORM TCCR2B // sets waveform mode
@@ -198,8 +266,16 @@ ISR(TIMER1_COMPA_vect) {
 	}
 
 ISR(TIMER2_COMPA_vect) {
-	((void(*)())hardTimerFunctions[2])(hardTimerParams[2]);
+	#if SKIP_TIMER_INDEX != 2
+		#if SKIP_TIMER_INDEX < 2
+			((void(*)())hardTimerFunctions[1])(hardTimerParams[1]);
+		#else
+			((void(*)())hardTimerFunctions[2])(hardTimerParams[2]);
+		#endif
+	#endif
 }
+
+#endif
 
 /****************************
  * Timer Functions
@@ -236,10 +312,10 @@ void setTimerClaimed(hard_timer_t timer, bool state) {
 		return;
 	}
 	if (state) {
-		timerStates |= (1 << (timer + 3));
+		timerStates |= (1 << (timer + NUM_TIMERS));
 	}
 	else {
-		timerStates &= (~(1 << (timer + 3)));
+		timerStates &= (~(1 << (timer + NUM_TIMERS)));
 	}
 }
 
@@ -298,7 +374,7 @@ void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t
 	for (uint8_t i = SCALAR_MASK_SIZE - 1; i < SCALAR_MASK_SIZE; i--) {
 
 		// ignore invalid scalars
-		if ((i == SCALAR_32 || i == SCALAR_128) && timer != HARD_TIMER2) {
+		if ((i == SCALAR_32 || i == SCALAR_128) && timer != TIMER_2_ALIAS) {
 			continue;
 		}
 
@@ -309,7 +385,7 @@ void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t
 		if (CALC_TICKS(i, *freq) > UINT16_MAX) {
 			continue;
 		}
-		if (CALC_TICKS(i, *freq) > UINT8_MAX && timer != HARD_TIMER1) {
+		if (CALC_TICKS(i, *freq) > UINT8_MAX && timer != TIMER_1_ALIAS) {
 			continue;
 		}
 		timertick_t calcTicks = CALC_TICKS(i, *freq);
@@ -336,7 +412,7 @@ bool hardTimerClaimed(hard_timer_t timer) {
 	if (timer == HARD_TIMER_INVALID) {
 		return false;
 	}
-	return (!!((1 << (3 + timer)) & timerStates));
+	return (!!((1 << (NUM_TIMERS + timer)) & timerStates));
 }
 
 /**
@@ -358,13 +434,13 @@ hard_timer_t claimTimer(struct hardTimerPriority *priority) {
 
 	// checks priorities
 	if (priority -> slowestTimer) {
-		if (availableClaim(HARD_TIMER1)) {
-			return HARD_TIMER1;
+		if (availableClaim(TIMER_1_ALIAS)) {
+			return TIMER_1_ALIAS;
 		}
 	}
 	if (priority -> mostAccurateTimer) {
-		if (availableClaim(HARD_TIMER2)) {
-			return HARD_TIMER2;
+		if (availableClaim(TIMER_2_ALIAS)) {
+			return TIMER_2_ALIAS;
 		}
 	}
 
@@ -466,12 +542,12 @@ enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, 
 	if (*freq < FREQ_MIN_8_COUNTER) {
 		// calculates slow frequencies for timer 1
 
-		if (hardTimerStarted(HARD_TIMER1) || hardTimerClaimed(HARD_TIMER1)) {
+		if (hardTimerStarted(TIMER_1_ALIAS) || hardTimerClaimed(TIMER_1_ALIAS)) {
 			// slow timer unavailable
 			return HARD_TIMER_FAIL;
 		}
 
-		SET_FIRST_FREQ(*freq, *timer, *freq, HARD_TIMER1, *timerTicks, *scalar);
+		SET_FIRST_FREQ(*freq, *timer, *freq, TIMER_1_ALIAS, *timerTicks, *scalar);
 		return HARD_TIMER_SLIGHTLY_OFF;
 	}
 	else {
@@ -488,33 +564,33 @@ enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, 
 		freq_t tempFreq = *freq;
 
 		// gets timer 0
-		if (!hardTimerStarted(HARD_TIMER0) && !hardTimerClaimed(HARD_TIMER0)) {
-			SET_FIRST_FREQ(*freq, *timer, tempFreq, HARD_TIMER0, *timerTicks, *scalar);
+		if (!hardTimerStarted(TIMER_0_ALIAS) && !hardTimerClaimed(TIMER_0_ALIAS)) {
+			SET_FIRST_FREQ(*freq, *timer, tempFreq, TIMER_0_ALIAS, *timerTicks, *scalar);
 		}
 
 		// gets timer 1
-		if (!hardTimerStarted(HARD_TIMER1) && !hardTimerClaimed(HARD_TIMER1)) {
+		if (!hardTimerStarted(TIMER_1_ALIAS) && !hardTimerClaimed(TIMER_1_ALIAS)) {
 
 			if (*timer == HARD_TIMER_INVALID) {
 				// timer 0 unavailable
-				SET_FIRST_FREQ(*freq, *timer, tempFreq, HARD_TIMER1, *timerTicks, *scalar);
+				SET_FIRST_FREQ(*freq, *timer, tempFreq, TIMER_1_ALIAS, *timerTicks, *scalar);
 			}
 			else {
 				// timer 0 available
-				SET_NEXT_FREQ(*freq, *timer, *timerTicks, *scalar, tempFreq, HARD_TIMER1, tempTicks, tempScalar);;
+				SET_NEXT_FREQ(*freq, *timer, *timerTicks, *scalar, tempFreq, TIMER_1_ALIAS, tempTicks, tempScalar);
 			}
 		}
 
 		// gets timer 2
-		if (!hardTimerStarted(HARD_TIMER2) && !hardTimerClaimed(HARD_TIMER2)) {
+		if (!hardTimerStarted(TIMER_2_ALIAS) && !hardTimerClaimed(TIMER_2_ALIAS)) {
 
 			if (*timer == HARD_TIMER_INVALID) {
 				// timer 0 and 1 unavailable
-				SET_FIRST_FREQ(*freq, *timer, tempFreq, HARD_TIMER2, *timerTicks, *scalar);
+				SET_FIRST_FREQ(*freq, *timer, tempFreq, TIMER_2_ALIAS, *timerTicks, *scalar);
 			}
 			else {
 				// timer 0 and/or 1 available
-				SET_NEXT_FREQ(*freq, *timer, *timerTicks, *scalar, tempFreq, HARD_TIMER2, tempTicks, tempScalar);
+				SET_NEXT_FREQ(*freq, *timer, *timerTicks, *scalar, tempFreq, TIMER_2_ALIAS, tempTicks, tempScalar);
 			}
 		}
 
@@ -550,15 +626,33 @@ bool hardTimerStarted(hard_timer_t timer) {
 bool cancelHardTimer(hard_timer_t timer) {
 
 	if (hardTimerStarted(timer)) {
-		if (timer == HARD_TIMER0) {
-			CANCEL_HARD_TIMER(0);
-		}
-		else if (timer == HARD_TIMER1) {
-			CANCEL_HARD_TIMER(1);
-		}
-		else if (timer == HARD_TIMER2) {
-			CANCEL_HARD_TIMER(2);
-		}
+		#if NUM_TIMERS > 0
+			if (timer == HARD_TIMER0) {
+				#if SKIP_TIMER_INDEX != 0
+					CANCEL_HARD_TIMER(0);
+				#else
+					CANCEL_HARD_TIMER(1);
+				#endif
+			}
+		#endif
+		#if NUM_TIMERS > 1
+			else if (timer == HARD_TIMER1) {
+				#if SKIP_TIMER_INDEX < 1
+					CANCEL_HARD_TIMER(2);
+				#else
+					CANCEL_HARD_TIMER(1);
+				#endif
+			}
+		#endif
+		#if NUM_TIMERS > 2
+			else if (timer == HARD_TIMER2) {
+				#if SKIP_TIMER_INDEX < 2
+					CANCEL_HARD_TIMER(3);
+				#else
+					CANCEL_HARD_TIMER(2);
+				#endif
+			}
+		#endif
 		setTimerStarted(timer, false);
 		return true;
 	}
@@ -599,8 +693,8 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 	}
 
 	if (
-		(*timer != HARD_TIMER1 && timerTicks >= UINT8_MAX) || // tests ticks out of bounds
-		(*timer != HARD_TIMER2 && (scalar == SCALAR_32 || scalar == SCALAR_128)) // tests scalar out of bounds
+		(*timer != TIMER_1_ALIAS && timerTicks >= UINT8_MAX) || // tests ticks out of bounds
+		(*timer != TIMER_1_ALIAS && (scalar == SCALAR_32 || scalar == SCALAR_128)) // tests scalar out of bounds
 	) {
 		return false;
 	}
@@ -609,15 +703,33 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 		setHardTimerFunction(*timer, function, params);
 
-		if (*timer == HARD_TIMER0) {
-			SET_HARD_TIMER(0, scalar, timerTicks, function, params);
-		}
-		else if (*timer == HARD_TIMER1) {
-			SET_HARD_TIMER(1, scalar, timerTicks, function, params);
-		}
-		else if (*timer == HARD_TIMER2) {
-			SET_HARD_TIMER(2, scalar, timerTicks, function, params);
-		}
+		#if NUM_TIMERS > 0
+			if (*timer == HARD_TIMER0) {
+				#if SKIP_TIMER_INDEX != 0
+					SET_HARD_TIMER(0, scalar, timerTicks, function, params);
+				#else
+					SET_HARD_TIMER(1, scalar, timerTicks, function, params);
+				#endif
+			}
+		#endif
+		#if NUM_TIMERS > 1
+			else if (*timer == HARD_TIMER1) {
+				#if SKIP_TIMER_INDEX < 1
+					SET_HARD_TIMER(2, scalar, timerTicks, function, params);
+				#else
+					SET_HARD_TIMER(1, scalar, timerTicks, function, params);
+				#endif
+			}
+		#endif
+		#if NUM_TIMERS > 2
+			else if (*timer == HARD_TIMER2) {
+				#if SKIP_TIMER_INDEX < 2
+					SET_HARD_TIMER(3, scalar, timerTicks, function, params);
+				#else
+					SET_HARD_TIMER(2, scalar, timerTicks, function, params);
+				#endif
+			}
+		#endif
 
 		setTimerStarted(*timer, true);
 		return true;
@@ -625,3 +737,5 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 
 	return false;
 }
+
+#endif
