@@ -46,7 +46,8 @@ typedef enum {
 	#ifdef SCALAR_1024_ENABLE
 		SCALAR_1024, // timer prescalar of 1024
 	#endif
-} prescalar_t; // pre scalar type
+} prescalar_enum_t; // pre scalar type
+typedef uint16_t prescalar_t; // scalar type
 typedef uint16_t timertick_t; // timer tick type
 
 #if NUM_TIMERS <= 4
@@ -67,7 +68,7 @@ typedef uint16_t timertick_t; // timer tick type
 	#error "Frequency not supported"
 #endif
 
-const uint16_t scalarMask[] PROGMEM = {
+const prescalar_t scalarMask[] PROGMEM = {
 	#ifdef SCALAR_1_ENABLE
 		1, // SCALAR_1
 	#endif
@@ -133,7 +134,7 @@ const uint16_t scalarMask[] PROGMEM = {
 	#define TIMER_2_ALIAS HARD_TIMER_INVALID_LIT
 #endif
 
-#define SCALAR_MASK_SIZE (sizeof(scalarMask) / sizeof(uint16_t)) // size of scalarMask
+#define SCALAR_MASK_SIZE (sizeof(scalarMask) / sizeof(prescalar_t)) // size of scalarMask
 
 /****************************
  * Timer 0
@@ -156,7 +157,7 @@ const uint16_t scalarMask[] PROGMEM = {
 /**
  * sets scalar for timer 0
  * 
- * @param scalar prescalar_t type for scalar value
+ * @param scalar prescalar_enum_t type for scalar value
  */
 #define TIMER_0_SET_SCALAR(scalar) \
 	if (scalar == SCALAR_1 || scalar == SCALAR_64 || scalar == SCALAR_1024) { \
@@ -198,7 +199,7 @@ ISR(TIMER0_COMPA_vect) {
 /**
  * sets scalar for timer 1
  * 
- * @param scalar prescalar_t type for scalar value
+ * @param scalar prescalar_enum_t type for scalar value
  */
 #define TIMER_1_SET_SCALAR(scalar) \
 	if (scalar == SCALAR_1 || scalar == SCALAR_64 || scalar == SCALAR_1024) { \
@@ -244,7 +245,7 @@ ISR(TIMER1_COMPA_vect) {
 /**
  * sets scalar for timer 2
  * 
- * @param scalar prescalar_t type for scalar value
+ * @param scalar prescalar_enum_t type for scalar value
  */
 #define TIMER_2_SET_SCALAR(scalar) \
 	if (scalar == SCALAR_1 || scalar == SCALAR_32 || scalar == SCALAR_128 || scalar == SCALAR_1024) { \
@@ -280,7 +281,7 @@ ISR(TIMER2_COMPA_vect) {
  * 
  * @return literal int value
  */
-uint16_t getMask(prescalar_t scalar) {
+uint16_t getMask(prescalar_enum_t scalar) {
 	return ((uint16_t)pgm_read_word_near(scalarMask + scalar));
 }
 
@@ -292,7 +293,7 @@ uint16_t getMask(prescalar_t scalar) {
  * 
  * @return calculated timer ticks
  */
-timertick_t calculateTicks(prescalar_t scalar, freq_t freq) {
+timertick_t calculateTicks(prescalar_enum_t scalar, freq_t freq) {
 	return (F_CPU / (getMask(scalar) * freq)) - 1;
 }
 
@@ -304,7 +305,7 @@ timertick_t calculateTicks(prescalar_t scalar, freq_t freq) {
  * 
  * @return calculated frequency
  */
-freq_t calculateFreq(prescalar_t scalar, timertick_t timerTicks) {
+freq_t calculateFreq(prescalar_enum_t scalar, timertick_t timerTicks) {
 	return F_CPU / ((freq_t)getMask(scalar) * (timerTicks + 1));
 }
 
@@ -355,7 +356,7 @@ void setTimerClaimed(hard_timer_t timer, bool state) {
  * 
  * @return if parameters generate frequency
  */
-bool sameFreq(freq_t freq, prescalar_t scalar, timertick_t ticks) {
+bool sameFreq(freq_t freq, prescalar_enum_t scalar, timertick_t ticks) {
 
 	if (F_CPU % ((freq_t)getMask(scalar) * (ticks + 1)) != 0) {
 		return false;
@@ -374,7 +375,7 @@ bool sameFreq(freq_t freq, prescalar_t scalar, timertick_t ticks) {
  * @param scalar pointer to scalar value
  * @param timerTicks pointer to timer tick count
  */
-void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t *timerTicks) {
+void getStats(freq_t *freq, hard_timer_t timer, prescalar_enum_t *scalar, timertick_t *timerTicks) {
 
 	*scalar = SCALAR_1;
 	*timerTicks = 0;
@@ -409,7 +410,7 @@ void getStats(freq_t *freq, hard_timer_t timer, prescalar_t *scalar, timertick_t
 
 		// test if newly calculated frequency is closer
 		if (abs(*freq - closestFreq) > abs(*freq - calculateFreq(i, calcTicks))) {
-			*scalar = (prescalar_t)i;
+			*scalar = (prescalar_enum_t)i;
 			*timerTicks = calcTicks;
 			closestFreq = calculateFreq(i, calcTicks);
 		}
@@ -531,7 +532,7 @@ bool unclaimTimer(hard_timer_t timer) {
  * 
  * @note freq value is changed to actual freq if values are slightly off
  */
-enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, prescalar_t *scalar, timertick_t *timerTicks) {
+enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, prescalar_enum_t *scalar, timertick_t *timerTicks) {
 
 	// returns started timer early
 	if (hardTimerStarted(*timer) && hardTimerClaimed(*timer)) {
@@ -567,7 +568,7 @@ enum HardTimerStatusReturn getHardTimerStats(freq_t *freq, hard_timer_t *timer, 
 		 * finally checks timer 2 since it can be more accurate
 		 */
 
-		prescalar_t tempScalar = SCALAR_1;
+		prescalar_enum_t tempScalar = SCALAR_1;
 		timertick_t tempTicks = 0;
 		freq_t tempFreq = *freq;
 
@@ -693,7 +694,7 @@ bool setHardTimer(hard_timer_t *timer, freq_t *freq, hard_timer_function_ptr_t f
 		return false;
 	}
 
-	prescalar_t scalar;
+	prescalar_enum_t scalar;
 	timertick_t timerTicks;
 
 	if (getHardTimerStats(freq, timer, &scalar, &timerTicks) == HARD_TIMER_FAIL) {

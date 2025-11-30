@@ -16,6 +16,20 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+/**
+ * Arduino functionality that uses hardware timers
+ * 
+ * wiring.c
+ * 		millis()
+ * 			Uses one timer
+ * wiring_analog.c
+ * 		PWM/AnalogWrite
+ * 			Uses all timers if all PWM pins used
+ * Tone.cpp
+ * 		Tone generation
+ * 			Uses one timer
+ */
+
 #include <osc_common/common_timer.h>
 
 #if defined(__AVR_ATmega328P__)
