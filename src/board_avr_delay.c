@@ -17,7 +17,7 @@
 */
 
 #include <osc_common/common_thread.h>
-#include <osc_common/common_timer.h>
+#include <hardware_timer.h>
 
 #if defined(ARDUINO) && !defined(OVERRIDE_ARDUINO_TIMER)
 	#include <Arduino.h>
