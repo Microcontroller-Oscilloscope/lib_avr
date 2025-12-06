@@ -43,8 +43,8 @@ void hardDelayMS(uint32_t delayAmount) {
 	#if defined(ARDUINO) && !defined(OVERRIDE_ARDUINO_TIMER)
 		delay(delayAmount);
 	#else
-		hard_timer_t timer = HARD_TIMER_INVALID;
-		freq_t freq = 0;
+		hard_timer_enum_t timer = HARD_TIMER_INVALID;
+		hard_timer_freq_t freq = 0;
 
 		uint16_t leftover = 0;
 
@@ -56,13 +56,13 @@ void hardDelayMS(uint32_t delayAmount) {
 			freq = 1;
 			
 			// try 1Hz
-			if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
+			if (!setHardTimer(&timer, &freq, &delayCounter, NULL, HARD_TIMER_PRIORITY_DEFAULT)) {
 				freq = 100;
 				cancelHardTimer(timer);
 				timer = HARD_TIMER_INVALID;
 
 				// try 100Hz
-				if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
+				if (!setHardTimer(&timer, &freq, &delayCounter, NULL, HARD_TIMER_PRIORITY_DEFAULT)) {
 					cancelHardTimer(timer);
 					return;
 				}
@@ -78,7 +78,7 @@ void hardDelayMS(uint32_t delayAmount) {
 			delayCount = 0;
 			timer = HARD_TIMER_INVALID;
 
-			if (!setHardTimer(&timer, &freq, &delayCounter, NULL, DEFAULT_HARD_TIMER_PRIORITY)) {
+			if (!setHardTimer(&timer, &freq, &delayCounter, NULL, HARD_TIMER_PRIORITY_DEFAULT)) {
 				cancelHardTimer(timer);
 				return;
 			}
